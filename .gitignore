@@ -7,3 +7,7 @@
 # Editor-based HTTP Client requests
 /httpRequests/
 /.idea/
+*.png
+/build/
+/dist/
+/Smrecek_UI_Zadanie4_Pracovna_verzia.spec
