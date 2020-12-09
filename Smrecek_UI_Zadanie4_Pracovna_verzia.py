@@ -1,7 +1,10 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import numpy as np
+import random
 import time
 from datetime import datetime
+from kdtrees import KDTree
 
 
 def zaciatok_funkcie(funkcia, zac):
@@ -52,29 +55,41 @@ def casova_pecat(pripona, charakteristika=""):
 
     return nazov
 
-# -------------------------------------------------------------------------------------------
-ROZMER_MATICE = 10001
+
+# --------------------------------------------------------------------------------------------------------------------
+ROZMER_MATICE = 101
 POLOVICA_ROZMERU = ROZMER_MATICE // 2
 HORNA_HRANICA = POLOVICA_ROZMERU
 DOLNA_HRANICA = -POLOVICA_ROZMERU
 OHRANICENIE = POLOVICA_ROZMERU // 10
-KOEFICIENT = 10000//(ROZMER_MATICE - 1)
+KOEFICIENT = 10000 // (ROZMER_MATICE - 1)
 
-# -------------------------------------------------------------------------------------------
-R_y = range(0, POLOVICA_ROZMERU + OHRANICENIE)
-R_x = range(0, POLOVICA_ROZMERU + OHRANICENIE)
+# --------------------------------------------------------------------------------------------------------------------
+R_y_matica = range(0, POLOVICA_ROZMERU + OHRANICENIE)
+R_x_matica = range(0, POLOVICA_ROZMERU + OHRANICENIE)
 
-G_y = range(0, POLOVICA_ROZMERU + OHRANICENIE)
-G_x = range(POLOVICA_ROZMERU - OHRANICENIE, ROZMER_MATICE)
+G_y_matica = range(0, POLOVICA_ROZMERU + OHRANICENIE)
+G_x_matica = range(POLOVICA_ROZMERU - OHRANICENIE, ROZMER_MATICE)
 
-B_y = range(POLOVICA_ROZMERU - OHRANICENIE, ROZMER_MATICE)
-B_x = range(0, POLOVICA_ROZMERU + OHRANICENIE)
+B_y_matica = range(POLOVICA_ROZMERU - OHRANICENIE, ROZMER_MATICE)
+B_x_matica = range(0, POLOVICA_ROZMERU + OHRANICENIE)
 
-P_y = range(POLOVICA_ROZMERU - OHRANICENIE, ROZMER_MATICE)
-P_x = range(POLOVICA_ROZMERU - OHRANICENIE, ROZMER_MATICE)
+P_y_matica = range(POLOVICA_ROZMERU - OHRANICENIE, ROZMER_MATICE)
+P_x_matica = range(POLOVICA_ROZMERU - OHRANICENIE, ROZMER_MATICE)
 
+R_y_graf = range(DOLNA_HRANICA, OHRANICENIE)
+R_x_graf = range(DOLNA_HRANICA, OHRANICENIE)
 
-# -------------------------------------------------------------------------------------------
+G_y_graf = range(DOLNA_HRANICA, OHRANICENIE)
+G_x_graf = range(-OHRANICENIE + 1, HORNA_HRANICA + 1)
+
+B_y_graf = range(-OHRANICENIE + 1, HORNA_HRANICA + 1)
+B_x_graf = range(DOLNA_HRANICA, OHRANICENIE)
+
+P_y_graf = range(-OHRANICENIE + 1, HORNA_HRANICA + 1)
+P_x_graf = range(-OHRANICENIE + 1, HORNA_HRANICA + 1)
+
+# --------------------------------------------------------------------------------------------------------------------
 BIELA = 0
 CERVENA = 1
 ZELENA = 2
@@ -88,11 +103,17 @@ FIALOVA = 4
 # FIALOVA = b"\x04"
 
 
-# -------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
 ZADANE_CERVENE = [[-4500, -4400], [-4100, -3000], [-1800, -2400], [-2500, -3400], [-2000, -1400]]
 ZADANE_ZELENE = [[4500, -4400], [4100, -3000], [1800, -2400], [2500, -3400], [2000, -1400]]
 ZADANE_MODRE = [[-4500, 4400], [-4100, 3000], [-1800, 2400], [-2500, 3400], [-2000, 1400]]
 ZADANE_FIALOVE = [[4500, 4400], [4100, 3000], [1800, 2400], [2500, 3400], [2000, 1400]]
+
+POSLEDNA = BIELA
+POCETNOST = [0, 0, 0, 0, 0]
+MAX_POCET_BODOV_TRIEDY = ROZMER_MATICE - 1
+NESPRAVNE_VYGENEROVANE = 0
+
 
 # def suradnice(x, y, rozmer_matice):
 #     polovica = rozmer_matice // 2
@@ -143,9 +164,9 @@ def vizualizuj(matica):
     extent = [DOLNA_HRANICA, HORNA_HRANICA, DOLNA_HRANICA, HORNA_HRANICA]
     plt.imshow(matica, interpolation="none", cmap=cmap, norm=norm, extent=extent, origin="lower")
 
-    # plt.show()
-    nazov = casova_pecat(".png", str(ROZMER_MATICE)+"-test-vizualizacie")
-    plt.savefig(nazov)
+    plt.show()
+    # nazov = casova_pecat(".png", str(ROZMER_MATICE)+"-test-vizualizacie")
+    # plt.savefig(nazov)
 
 
 def vytvor_maticu():
@@ -177,6 +198,13 @@ def vloz_do_matice(matica, x, y, farba):
     # print("Do matice bol vlozeny bod", x, y, farba)
 
 
+def ziskaj_farbu_z_matice(matica, x, y):
+    if x is None or y is None:
+        return -5
+    xx, yy = prerataj_suradnice(x, y)
+    return matica[yy][xx]
+
+
 def prenasob_suradnice():
     pomocne_cervene = []
     pomocne_zelene = []
@@ -184,15 +212,15 @@ def prenasob_suradnice():
     pomocne_fialove = []
 
     for i in range(5):
-        pomocne_cervene.append([ZADANE_CERVENE[i][0]//KOEFICIENT, ZADANE_CERVENE[i][1]//KOEFICIENT])
-        pomocne_zelene.append([ZADANE_ZELENE[i][0]//KOEFICIENT, ZADANE_ZELENE[i][1]//KOEFICIENT])
-        pomocne_modre.append([ZADANE_MODRE[i][0]//KOEFICIENT, ZADANE_MODRE[i][1]//KOEFICIENT])
-        pomocne_fialove.append([ZADANE_FIALOVE[i][0]//KOEFICIENT, ZADANE_FIALOVE[i][1]//KOEFICIENT])
+        pomocne_cervene.append([ZADANE_CERVENE[i][0] // KOEFICIENT, ZADANE_CERVENE[i][1] // KOEFICIENT])
+        pomocne_zelene.append([ZADANE_ZELENE[i][0] // KOEFICIENT, ZADANE_ZELENE[i][1] // KOEFICIENT])
+        pomocne_modre.append([ZADANE_MODRE[i][0] // KOEFICIENT, ZADANE_MODRE[i][1] // KOEFICIENT])
+        pomocne_fialove.append([ZADANE_FIALOVE[i][0] // KOEFICIENT, ZADANE_FIALOVE[i][1] // KOEFICIENT])
 
-    print(pomocne_cervene)
-    print(pomocne_zelene)
-    print(pomocne_modre)
-    print(pomocne_fialove)
+    # print(pomocne_cervene)
+    # print(pomocne_zelene)
+    # print(pomocne_modre)
+    # print(pomocne_fialove)
 
     return pomocne_cervene, pomocne_zelene, pomocne_modre, pomocne_fialove
 
@@ -268,6 +296,178 @@ def zrataj_pocet_bodov(matica):
     oddelovac()
 
 
+def zasad_strom():
+    cervene, zelene, modre, fialove = prenasob_suradnice()
+
+    suradnice = cervene + zelene + modre + fialove
+
+    print(suradnice)
+
+    strom = KDTree.initialize(suradnice)
+
+    return strom
+
+
+def vypis_rozmedzie():
+    print("R x:", R_x_graf)
+    print("R y:", R_y_graf)
+
+    print("G x:", G_x_graf)
+    print("G y:", G_y_graf)
+
+    print("B x:", B_x_graf)
+    print("B y:", B_y_graf)
+
+    print("P x:", P_x_graf)
+    print("P y:", P_y_graf)
+
+    for i in R_x_graf:
+        print(i, end=" ")
+    print()
+    for i in G_x_graf:
+        print(i, end=" ")
+    print()
+
+
+def pravdepodobnost():
+    # random.seed(1111)
+    # cislo = random.random()
+
+    cislo = np.random.rand()
+
+    if cislo >= 0.99:
+        return False
+    else:
+        return True
+
+
+def generuj_farbu_nahodne():
+    global POSLEDNA
+    global POCETNOST
+
+    farba = np.random.randint(1, 5)
+    while farba == POSLEDNA or POCETNOST[farba] >= MAX_POCET_BODOV_TRIEDY:
+        farba = np.random.randint(1, 5)
+
+    POSLEDNA = farba
+    POCETNOST[farba] += 1
+
+    return farba
+
+
+def generuj_farbu_v_poradi():
+    global POSLEDNA
+    global POCETNOST
+
+    farba = BIELA
+
+    if POSLEDNA == BIELA and POCETNOST[CERVENA] < MAX_POCET_BODOV_TRIEDY:
+        farba = CERVENA
+    if POSLEDNA == CERVENA and POCETNOST[ZELENA] < MAX_POCET_BODOV_TRIEDY:
+        farba = ZELENA
+    if POSLEDNA == ZELENA and POCETNOST[MODRA] < MAX_POCET_BODOV_TRIEDY:
+        farba = MODRA
+    if POSLEDNA == MODRA and POCETNOST[FIALOVA] < MAX_POCET_BODOV_TRIEDY:
+        farba = FIALOVA
+    if POSLEDNA == FIALOVA and POCETNOST[CERVENA] < MAX_POCET_BODOV_TRIEDY:
+        farba = CERVENA
+
+    if farba == BIELA:
+        print("CHYBA PROGRAMU")
+
+    POSLEDNA = farba
+    POCETNOST[farba] += 1
+
+    return farba
+
+
+def generuj_nespravne_suradnice(rangeX, rangeY):
+    x = np.random.randint(DOLNA_HRANICA, HORNA_HRANICA + 1)
+    y = np.random.randint(DOLNA_HRANICA, HORNA_HRANICA + 1)
+    while x in rangeX or y in rangeY:
+        x = np.random.randint(DOLNA_HRANICA, HORNA_HRANICA + 1)
+        y = np.random.randint(DOLNA_HRANICA, HORNA_HRANICA + 1)
+
+    return x, y
+
+
+def generuj_suradnice(matica):
+    # farba = generuj_farbu_nahodne()
+    farba = generuj_farbu_v_poradi()
+
+    spravny = pravdepodobnost()
+
+    x = None
+    y = None
+
+    global NESPRAVNE_VYGENEROVANE
+    if not spravny:
+        NESPRAVNE_VYGENEROVANE += 1
+
+    if farba == CERVENA and spravny:
+        while ziskaj_farbu_z_matice(matica, x, y) != BIELA:
+            x = np.random.randint(DOLNA_HRANICA, OHRANICENIE)
+            y = np.random.randint(DOLNA_HRANICA, OHRANICENIE)
+    elif farba == CERVENA:
+        while ziskaj_farbu_z_matice(matica, x, y) != BIELA:
+            x, y = generuj_nespravne_suradnice(R_x_graf, R_y_graf)
+
+    if farba == ZELENA and spravny:
+        while ziskaj_farbu_z_matice(matica, x, y) != BIELA:
+            x = np.random.randint(-OHRANICENIE + 1, HORNA_HRANICA + 1)
+            y = np.random.randint(DOLNA_HRANICA, OHRANICENIE)
+    elif farba == ZELENA:
+        while ziskaj_farbu_z_matice(matica, x, y) != BIELA:
+            x, y = generuj_nespravne_suradnice(G_x_graf, G_x_graf)
+
+    if farba == MODRA and spravny:
+        while ziskaj_farbu_z_matice(matica, x, y) != BIELA:
+            x = np.random.randint(DOLNA_HRANICA, OHRANICENIE)
+            y = np.random.randint(-OHRANICENIE + 1, HORNA_HRANICA + 1)
+    elif farba == MODRA:
+        while ziskaj_farbu_z_matice(matica, x, y) != BIELA:
+            x, y = generuj_nespravne_suradnice(B_x_graf, B_x_graf)
+
+    if farba == FIALOVA and spravny:
+        while ziskaj_farbu_z_matice(matica, x, y) != BIELA:
+            x = np.random.randint(-OHRANICENIE + 1, HORNA_HRANICA + 1)
+            y = np.random.randint(-OHRANICENIE + 1, HORNA_HRANICA + 1)
+    elif farba == FIALOVA:
+        while ziskaj_farbu_z_matice(matica, x, y) != BIELA:
+            x, y = generuj_nespravne_suradnice(P_x_graf, P_x_graf)
+
+    return x, y, farba
+
+
+def kontrola_generatora(x, y, farba):
+    if x in R_x_graf and y in R_y_graf and farba == CERVENA:
+        return True
+
+    if x in G_x_graf and y in G_y_graf and farba == ZELENA:
+        return True
+
+    if x in B_x_graf and y in B_y_graf and farba == MODRA:
+        return True
+
+    if x in P_x_graf and y in P_y_graf and farba == FIALOVA:
+        return True
+
+    return False
+
+
+def vytvor_bod(matica, strom, k):
+    x, y, farba_z_generatora = generuj_suradnice(matica)
+
+    farba_z_klasifikatora = BIELA
+
+    najblizsi_sused = strom.nearest_neighbor([x, y], n=k)
+    for sused in najblizsi_sused:
+        print(sused)
+        print(ziskaj_farbu_z_matice(matica, sused[0][0], sused[0][1]))
+
+    vloz_do_matice(matica, x, y, farba_z_klasifikatora)
+
+
 def main():
     """Hlavna funkcia programu
     
@@ -275,16 +475,79 @@ def main():
     """
     zaciatok_funkcie(main.__name__, True)
 
+    np.random.seed(1452)
+
     generovanie_matice_start = time.time()
     matica = vytvor_maticu()
     generovanie_matice_end = time.time()
     print("Generovanie matice velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
                                                                   generovanie_matice_end - generovanie_matice_start))
 
+    vlozenie_povodnych_start = time.time()
     vloz_povodnych_20(matica)
+    vlozenie_povodnych_end = time.time()
+    print("Vlozenie povodnych 20 bodov do matice o velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
+                                                                                       vlozenie_povodnych_end - vlozenie_povodnych_start))
+
+    zasadenie_stromu_start = time.time()
+    strom = zasad_strom()
+    zasadenie_stromu_end = time.time()
+    print("Zasadenie stromu zabralo {} s".format(zasadenie_stromu_end - zasadenie_stromu_start))
+
+
+    vytvor_bod(matica, strom, 1)
+
+    # vypis_rozmedzie()
+
+    # false = 0
+    # true = 0
+    # for i in range(100):
+    #     if pravdepodobnost():
+    #         true += 1
+    #     else:
+    #         false += 1
+    # print(true, false)
+
+    # vykreslenie_hranic_start = time.time()
+    # vykresli_hranice(matica)
+    # vykreslenie_hranic_end = time.time()
+    # print("Vykreslenie hranic do matice o velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
+    #                                                                           vykreslenie_hranic_end - vykreslenie_hranic_start))
+
+    # zratanie_bodov_start = time.time()
     # zrataj_pocet_bodov(matica)
-    vykresli_hranice(matica)
-    # zrataj_pocet_bodov(matica)
+    # zratanie_bodov_end = time.time()
+    # print("Zratanie bodov v matici o velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
+    #                                                                      zratanie_bodov_end - zratanie_bodov_start))
+
+    # vizualizacia_start = time.time()
+    # vizualizuj(matica)
+    # vizualizacia_end = time.time()
+    # print("Vizualizacia matice velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
+    #                                                                vizualizacia_end - vizualizacia_start))
+
+    # suradnice = []
+    # for i in range(400):
+    #     suradnice.append(generuj_suradnice(matica))
+    #     # print(i, generuj_suradnice())
+    #     # if i > 390:
+    #     #     print(POCETNOST)
+    # print(suradnice)
+    # spravne = 0
+    # nespravne = 0
+    # for i in suradnice:
+    #     if kontrola_generatora(i[0], i[1], i[2]):
+    #         spravne += 1
+    #     else:
+    #         nespravne += 1
+    # print(spravne, nespravne)
+    # print(NESPRAVNE_VYGENEROVANE)
+
+    # --------------------------------------------------------------------------------------------------------------------
+
+    # plt.matshow(matica)
+    # plt.colorbar()
+    # plt.show()
 
     # x, y = prerataj_suradnice(-10, -0)
     # vloz_do_matice(matica, x, y, CERVENA)
@@ -294,22 +557,10 @@ def main():
     #         farba = CERVENA if y % 2 == 0 else MODRA
     #         vloz_do_matice(matica, x, y, farba)
 
-    vizualizacia_start = time.time()
-    vizualizuj(matica)
-    vizualizacia_end = time.time()
-    print("Vizualizacia matice velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
-                                                                   vizualizacia_end - vizualizacia_start))
-
-    # plt.matshow(matica)
-    # plt.colorbar()
-    # plt.show()
-
     # vizualizacia_start = time.time()
     # vizualizuj_zla(matica, ROZMER_MATICE)
     # vizualizacia_end = time.time()
     # print("Vizualizacia matice velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE, vizualizacia_end-vizualizacia_start))
-
-
 
     zaciatok_funkcie(main.__name__, False)
 
