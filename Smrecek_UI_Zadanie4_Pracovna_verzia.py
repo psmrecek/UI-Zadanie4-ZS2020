@@ -111,9 +111,13 @@ ZADANE_FIALOVE = [[4500, 4400], [4100, 3000], [1800, 2400], [2500, 3400], [2000,
 
 POSLEDNA = BIELA
 POCETNOST = [0, 0, 0, 0, 0]
-MAX_POCET_BODOV_TRIEDY = ROZMER_MATICE - 1
+MAX_POCET_BODOV_TRIEDY = (ROZMER_MATICE - 1) // 2
 NESPRAVNE_VYGENEROVANE = 0
 
+SPRAVNE_OKLASIFIKOVANE = 0
+NESPRAVNE_OKLASIFIKOVANE = 0
+
+POLE_BODOV = []
 
 # def suradnice(x, y, rozmer_matice):
 #     polovica = rozmer_matice // 2
@@ -194,7 +198,10 @@ def vytvor_maticu():
 
 def vloz_do_matice(matica, x, y, farba):
     xx, yy = prerataj_suradnice(x, y)
-    matica[yy][xx] = farba
+    try:
+        matica[yy][xx] = farba
+    except IndexError:
+        print(x, y, xx, yy)
     # print("Do matice bol vlozeny bod", x, y, farba)
 
 
@@ -202,7 +209,11 @@ def ziskaj_farbu_z_matice(matica, x, y):
     if x is None or y is None:
         return -5
     xx, yy = prerataj_suradnice(x, y)
-    return matica[yy][xx]
+
+    try:
+        return matica[yy][xx]
+    except IndexError:
+        print(x, y, xx, yy)
 
 
 def prenasob_suradnice():
@@ -247,6 +258,9 @@ def vloz_povodnych_20(matica):
     for suradnice in fialove:
         x, y = suradnice[0], suradnice[1]
         vloz_do_matice(matica, x, y, FIALOVA)
+
+    global POLE_BODOV
+    POLE_BODOV = cervene + zelene + modre + fialove
 
 
 def vykresli_hranice(matica):
@@ -455,17 +469,74 @@ def kontrola_generatora(x, y, farba):
     return False
 
 
-def vytvor_bod(matica, strom, k):
+def klasifikator(matica, strom, x, y, k):
+    najblizsi_susedia = strom.nearest_neighbor([x, y], n=k)
+    cervena = 0
+    zelena = 0
+    modra = 0
+    fialova = 0
+
+    for sused in najblizsi_susedia:
+        farba_suseda = ziskaj_farbu_z_matice(matica, sused[0][0], sused[0][1])
+        if farba_suseda == CERVENA:
+            cervena += 1
+        elif farba_suseda == ZELENA:
+            zelena += 1
+        elif farba_suseda == MODRA:
+            modra += 1
+        elif farba_suseda == FIALOVA:
+            fialova += 1
+        else:
+            print("CHYBA PROGRAMU")
+
+    maximum = np.amax([cervena, zelena, modra, fialova])
+    if maximum == cervena:
+        farba_z_klasifikatora = CERVENA
+    elif maximum == zelena:
+        farba_z_klasifikatora = ZELENA
+    elif maximum == modra:
+        farba_z_klasifikatora = MODRA
+    elif maximum == fialova:
+        farba_z_klasifikatora = FIALOVA
+
+    return farba_z_klasifikatora
+
+
+def vytvor_bod(matica, k):
     x, y, farba_z_generatora = generuj_suradnice(matica)
+
+    # print(x, y)
 
     farba_z_klasifikatora = BIELA
 
-    najblizsi_sused = strom.nearest_neighbor([x, y], n=k)
-    for sused in najblizsi_sused:
-        print(sused)
-        print(ziskaj_farbu_z_matice(matica, sused[0][0], sused[0][1]))
+    global POLE_BODOV
+    strom = KDTree.initialize(POLE_BODOV)
+
+    farba_z_klasifikatora = klasifikator(matica, strom, x, y, k)
+
+    global SPRAVNE_OKLASIFIKOVANE
+    global NESPRAVNE_OKLASIFIKOVANE
+
+    if farba_z_klasifikatora == farba_z_generatora:
+        SPRAVNE_OKLASIFIKOVANE += 1
+    else:
+        NESPRAVNE_OKLASIFIKOVANE += 1
 
     vloz_do_matice(matica, x, y, farba_z_klasifikatora)
+    # strom.insert([x, y])
+    POLE_BODOV.append([x, y])
+
+
+def vyfarbi_mapu(matica, k):
+    global POLE_BODOV
+    strom = KDTree.initialize(POLE_BODOV)
+
+    for x in range(DOLNA_HRANICA, HORNA_HRANICA + 1):
+        for y in range(DOLNA_HRANICA, HORNA_HRANICA + 1):
+            farba = ziskaj_farbu_z_matice(matica, x, y)
+            if farba == BIELA:
+                farba_z_klasifikatora = klasifikator(matica, strom, x, y, k)
+                vloz_do_matice(matica, x, y, farba_z_klasifikatora)
 
 
 def main():
@@ -476,6 +547,7 @@ def main():
     zaciatok_funkcie(main.__name__, True)
 
     np.random.seed(1452)
+    k = 1
 
     generovanie_matice_start = time.time()
     matica = vytvor_maticu()
@@ -489,13 +561,27 @@ def main():
     print("Vlozenie povodnych 20 bodov do matice o velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
                                                                                        vlozenie_povodnych_end - vlozenie_povodnych_start))
 
-    zasadenie_stromu_start = time.time()
-    strom = zasad_strom()
-    zasadenie_stromu_end = time.time()
-    print("Zasadenie stromu zabralo {} s".format(zasadenie_stromu_end - zasadenie_stromu_start))
+    # zasadenie_stromu_start = time.time()
+    # strom = zasad_strom()
+    # zasadenie_stromu_end = time.time()
+    # print("Zasadenie stromu zabralo {} s".format(zasadenie_stromu_end - zasadenie_stromu_start))
 
+    vkladanie_bodov_star = time.time()
+    for i in range(MAX_POCET_BODOV_TRIEDY*4):
+        vytvor_bod(matica, k)
+        if i % 100 == 0:
+            vkladanie_bodov_middle = time.time()
+            print("Bolo vlozenych {} bodov. Trvalo to {} s".format(i, vkladanie_bodov_middle - vkladanie_bodov_star))
+    vkladanie_bodov_end = time.time()
+    print("Vlozenie {} bodov do matice velkosti {}x{} zabralo {} s".format(MAX_POCET_BODOV_TRIEDY*4, ROZMER_MATICE,
+                                                                           ROZMER_MATICE, vkladanie_bodov_end - vkladanie_bodov_star))
 
-    vytvor_bod(matica, strom, 1)
+    vyfarbenie_mapy_star = time.time()
+    vyfarbi_mapu(matica, k)
+    vyfarbenie_mapy_end = time.time()
+    print("Vyfarbenie matice {}x{} v ktorej je uz {} bodov trvalo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
+                                                                               len(POLE_BODOV),
+                                                                               vyfarbenie_mapy_end-vyfarbenie_mapy_star))
 
     # vypis_rozmedzie()
 
@@ -520,11 +606,11 @@ def main():
     # print("Zratanie bodov v matici o velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
     #                                                                      zratanie_bodov_end - zratanie_bodov_start))
 
-    # vizualizacia_start = time.time()
-    # vizualizuj(matica)
-    # vizualizacia_end = time.time()
-    # print("Vizualizacia matice velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
-    #                                                                vizualizacia_end - vizualizacia_start))
+    vizualizacia_start = time.time()
+    vizualizuj(matica)
+    vizualizacia_end = time.time()
+    print("Vizualizacia matice velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
+                                                                   vizualizacia_end - vizualizacia_start))
 
     # suradnice = []
     # for i in range(400):

@@ -6,12 +6,29 @@ from kdtrees import KDTree
 #
 # matica = [[0 for i in range(ROZMER_MATICE)] for j in range(ROZMER_MATICE)]
 
-tree = KDTree.initialize([[1, 2], [2, 3], [-10, -3]])
-tree.insert([0, 0])
+pole = []
+for i in range(20020):
+    pole.append([i, i+1])
 
-susedia = tree.nearest_neighbor([0, 1], n=20)
+# print(pole)
+
+strom = KDTree.initialize(pole)
+susedia = strom.nearest_neighbor([0, 2], n=20)
 
 print(susedia)
+
+# tree = KDTree.initialize([[0, 1]])
+#
+#
+# for i in range(0, 2000):
+#     tree.insert([0, -i])
+#     print("Vlozil som bod ", i + 1)
+#
+# print("SKONCILO NAHRAVANIE")
+#
+# susedia = tree.nearest_neighbor([0, 2], n=20)
+#
+# print(susedia)
 
 
 
