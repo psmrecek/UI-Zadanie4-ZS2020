@@ -1,12 +1,11 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
-import random
 import time
 from datetime import datetime
-from kdtrees import KDTree
 import kdtree
 import math
+
 
 def zaciatok_funkcie(funkcia, zac):
     """Pomocna debuggovacia funkcia ktora vypise ktora funkcia bola prave spustena a ukoncena.
@@ -49,8 +48,8 @@ def casova_pecat(pripona, charakteristika=""):
     nazov = cas.strftime("%Y-%m-%d--%H-%M-%S")
 
     if charakteristika != "":
-        nazov += "-"
-        nazov += charakteristika
+        nazov += "--"
+        nazov += charakteristika + "-Smrecek"
 
     nazov += pripona
 
@@ -97,13 +96,6 @@ ZELENA = 2
 MODRA = 3
 FIALOVA = 4
 
-# BIELA = b"\x00"
-# CERVENA = b"\x01"
-# ZELENA = b"\x02"
-# MODRA = b"\x03"
-# FIALOVA = b"\x04"
-
-
 # --------------------------------------------------------------------------------------------------------------------
 ZADANE_CERVENE = [[-4500, -4400], [-4100, -3000], [-1800, -2400], [-2500, -3400], [-2000, -1400]]
 ZADANE_ZELENE = [[4500, -4400], [4100, -3000], [1800, -2400], [2500, -3400], [2000, -1400]]
@@ -118,15 +110,6 @@ NESPRAVNE_VYGENEROVANE = 0
 SPRAVNE_OKLASIFIKOVANE = 0
 NESPRAVNE_OKLASIFIKOVANE = 0
 
-POLE_BODOV = []
-
-# def suradnice(x, y, rozmer_matice):
-#     polovica = rozmer_matice // 2
-#     x_matica = x + polovica
-#     y_matica = y + polovica
-#
-#     return x_matica, y_matica
-
 
 def vypis(matica):
     for i in matica:
@@ -134,45 +117,24 @@ def vypis(matica):
     oddelovac()
 
 
-# def vizualizuj_zla(matica, rozmer_matice):
-#     plt.xlim(DOLNA_HRANICA, HORNA_HRANICA)
-#     plt.ylim(DOLNA_HRANICA, HORNA_HRANICA)
-#
-#     for i in range(rozmer_matice):
-#         for j in range(rozmer_matice):
-#             trieda = matica[i][j]
-#             farba = None
-#             if trieda == b"R":
-#                 farba = "ro"
-#             elif trieda == b"B":
-#                 farba = "bo"
-#             elif trieda == b"G":
-#                 farba = "go"
-#             elif trieda == b"P":
-#                 farba = "mo"
-#             elif trieda == b"W":
-#                 farba = "wo"
-#             else:
-#                 print("Neznama farba", i, j, trieda)
-#
-#             # plt.plot(i - POLOVICA_ROZMERU, j - POLOVICA_ROZMERU, farba)
-#
-#     # plt.show()
-
-
-def vizualizuj(matica):
+def vizualizuj(matica, charakteristika, uloz = False):
     colors = ["white", "red", "green", "blue", "purple"]
     bounds = [BIELA, CERVENA, ZELENA, MODRA, FIALOVA, 5]
     cmap = mpl.colors.ListedColormap(colors)
     norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
 
     extent = [DOLNA_HRANICA, HORNA_HRANICA, DOLNA_HRANICA, HORNA_HRANICA]
-    plt.figure(figsize=(20, 20))
+    # plt.figure(figsize=(20, 20))
     plt.imshow(matica, interpolation="none", cmap=cmap, norm=norm, extent=extent, origin="lower")
 
-    plt.show()
-    # nazov = casova_pecat(".png", str(ROZMER_MATICE)+"-test-vizualizacie")
-    # plt.savefig(nazov)
+    nazov = casova_pecat(".png", charakteristika)
+    plt.title(charakteristika)
+    plt.text(DOLNA_HRANICA, DOLNA_HRANICA-(0.12 * ROZMER_MATICE), nazov)
+
+    if uloz:
+        plt.savefig(nazov)
+    else:
+        plt.show()
 
 
 def vytvor_maticu(pole_vlozenych):
@@ -190,7 +152,6 @@ def vloz_do_matice(matica, x, y, farba):
         matica[yy][xx] = farba
     except IndexError:
         print(x, y, xx, yy)
-    # print("Do matice bol vlozeny bod", x, y, farba)
 
 
 def ziskaj_farbu_z_matice(matica, x, y):
@@ -321,8 +282,6 @@ def vypis_rozmedzie():
 
 
 def pravdepodobnost():
-    # random.seed(1111)
-    # cislo = random.random()
 
     cislo = np.random.rand()
 
@@ -537,14 +496,39 @@ def klasifikator(pole_vlozenych, x, y, k):
     modra = 0
     fialova = 0
 
-    min = 1000000
     farba_z_klasifikatora = BIELA
+
+    pole_vzdialenosti = []
 
     for vlozeny in pole_vlozenych:
         vzdialenost = vzdialenostna_funkcia(vlozeny[0], vlozeny[1], x, y)
-        if vzdialenost < min:
-            min = vzdialenost
-            farba_z_klasifikatora = vlozeny[2]
+        farba_z_klasifikatora = vlozeny[2]
+        pole_vzdialenosti.append([vzdialenost, farba_z_klasifikatora])
+
+    pole_vzdialenosti.sort(key=lambda i: i[0])
+
+    for i in range(k):
+        farba_suseda = pole_vzdialenosti[i][1]
+        if farba_suseda == CERVENA:
+            cervena += 1
+        elif farba_suseda == ZELENA:
+            zelena += 1
+        elif farba_suseda == MODRA:
+            modra += 1
+        elif farba_suseda == FIALOVA:
+            fialova += 1
+        else:
+            print("CHYBA PROGRAMU")
+
+    maximum = np.amax([cervena, zelena, modra, fialova])
+    if maximum == cervena:
+        farba_z_klasifikatora = CERVENA
+    elif maximum == zelena:
+        farba_z_klasifikatora = ZELENA
+    elif maximum == modra:
+        farba_z_klasifikatora = MODRA
+    elif maximum == fialova:
+        farba_z_klasifikatora = FIALOVA
 
     return farba_z_klasifikatora
 
@@ -591,6 +575,7 @@ def klasifikator_novych_bodov(matica, strom, x, y, k):
 
     return farba_z_klasifikatora
 
+
 def vytvor_testovaciu_sadu(pole_vlozenych, pole_na_vkladanie, k):
 
     start = time.time()
@@ -623,14 +608,24 @@ def zasad_strom(pole_vlozenych):
     return strom
 
 
-def vyfarbi_mapu(matica, k, strom):
+def vyfarbi_mapu(matica, k, strom, skok):
+    rozmer_matice = ROZMER_MATICE // skok
+    nova_matica = [[0 for x in range(rozmer_matice + 1)] for y in range(rozmer_matice + 1)]
+    start = time.time()
+    nove_x = 0
 
-    for x in range(DOLNA_HRANICA, HORNA_HRANICA + 1):
-        for y in range(DOLNA_HRANICA, HORNA_HRANICA + 1):
+    for x in range(DOLNA_HRANICA, HORNA_HRANICA + 1, skok):
+        nove_y = 0
+        print("x = {}; {} s".format(x, time.time() - start))
+        for y in range(DOLNA_HRANICA, HORNA_HRANICA + 1, skok):
             farba = ziskaj_farbu_z_matice(matica, x, y)
             if farba == BIELA:
-                farba_z_klasifikatora = klasifikator_novych_bodov(matica, strom, x, y, k)
-                vloz_do_matice(matica, x, y, farba_z_klasifikatora)
+                farba = klasifikator_novych_bodov(matica, strom, x, y, k)
+            nova_matica[nove_y][nove_x] = farba
+            nove_y += 1
+        nove_x += 1
+
+    return nova_matica
 
 
 def main():
@@ -638,63 +633,73 @@ def main():
     
     :return: 
     """
-    zaciatok_funkcie(main.__name__, True)
+    program_star = time.time()
 
     np.random.seed(1452)
-    k = 1
+    k = 15
+    pocet_testovacich_bodov = MAX_POCET_BODOV_TRIEDY * 4
+    skok = 25
+    charakteristika = str(ROZMER_MATICE)+"x-"+str(pocet_testovacich_bodov+20)+"b-"+str(skok)+"p-"+str(k)+"k"
+
 
     vlozenie_povodnych_start = time.time()
     pole_vlozenych = vloz_povodnych_20()
     vlozenie_povodnych_end = time.time()
     print("Vlozenie povodnych 20 bodov do pola zabralo {} s".format(vlozenie_povodnych_end - vlozenie_povodnych_start))
-
+    oddelovac()
 
     generovanie_bodov_start = time.time()
     pole_suradnic = generuj_pole_suradnic()
     # print(pole_suradnic)
     # print(kontrola_generatora(pole_suradnic))
-    # print(NESPRAVNE_VYGENEROVANE)
+    print("Pocet suradnic vygnenerovanych mimo svojho ohranicenia", NESPRAVNE_VYGENEROVANE)
     generovanie_bodov_end = time.time()
-    print("Vygenerovanie a usporiadanie {} bodov trvalo {} s".format(MAX_POCET_BODOV_TRIEDY*4,
+    print("Vygenerovanie a usporiadanie {} bodov trvalo {} s".format(pocet_testovacich_bodov,
                                                                      generovanie_bodov_end-generovanie_bodov_start))
+    oddelovac()
 
     vkladanie_bodov_star = time.time()
     vytvor_testovaciu_sadu(pole_vlozenych, pole_suradnic, k)
     vkladanie_bodov_end = time.time()
-    print("Vlozenie {} bodov do pola zabralo {} s".format(MAX_POCET_BODOV_TRIEDY*4, vkladanie_bodov_end - vkladanie_bodov_star))
+    print("Vlozenie {} bodov do pola zabralo {} s".format(pocet_testovacich_bodov,
+                                                          vkladanie_bodov_end - vkladanie_bodov_star))
+    oddelovac()
+
+    uspesnost = SPRAVNE_OKLASIFIKOVANE / pocet_testovacich_bodov * 100
+    print("Z {} bodov bolo spravne klasifikovanych {} a nespravne {}, co znaci "
+          "uspesnost {}%".format(pocet_testovacich_bodov, SPRAVNE_OKLASIFIKOVANE, NESPRAVNE_OKLASIFIKOVANE, uspesnost))
+    oddelovac()
 
     generovanie_matice_start = time.time()
     matica = vytvor_maticu(pole_vlozenych)
     generovanie_matice_end = time.time()
     print("Generovanie matice velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
                                                                   generovanie_matice_end - generovanie_matice_start))
+    oddelovac()
 
     zasadenie_stromu_start = time.time()
     strom = zasad_strom(pole_vlozenych)
     zasadenie_stromu_end = time.time()
     print("Zasadenie stromu zabralo {} s".format(zasadenie_stromu_end - zasadenie_stromu_start))
+    oddelovac()
 
+    # with open('C:\\Users\\PeterSmrecek\\Desktop\\Z4 súbory\\10001b_k1_bruteforce_testovacia_sada.npy', 'wb') as f:
+    #     np.save(f, matica)
 
     vyfarbenie_mapy_star = time.time()
-    vyfarbi_mapu(matica, k, strom)
+    nova_matica = vyfarbi_mapu(matica, k, strom, skok)
     vyfarbenie_mapy_end = time.time()
-    print("Vyfarbenie matice {}x{} v ktorej je uz {} bodov trvalo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
-                                                                               len(POLE_BODOV),
-                                                                               vyfarbenie_mapy_end-vyfarbenie_mapy_star))
+    print("Vytvorenie novej matice, kde sa nachadza kazdy {}. bod trvalo {}".format(
+        skok, vyfarbenie_mapy_end - vyfarbenie_mapy_star))
+    oddelovac()
 
-    with open('C:\\Users\\PeterSmrecek\\Desktop\\Z4 súbory\\10001b_k1_bruteforce.npy', 'wb') as f:
-        np.save(f, matica)
+    vizualizacia_start = time.time()
+    vizualizuj(nova_matica, charakteristika+"-"+str(uspesnost), uloz=True)
+    vizualizacia_end = time.time()
+    print("Vizualizacia matice velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
+                                                                   vizualizacia_end - vizualizacia_start))
+    oddelovac()
 
-    # vypis_rozmedzie()
-
-    # false = 0
-    # true = 0
-    # for i in range(100):
-    #     if pravdepodobnost():
-    #         true += 1
-    #     else:
-    #         false += 1
-    # print(true, false)
 
     # vykreslenie_hranic_start = time.time()
     # vykresli_hranice(matica)
@@ -708,28 +713,8 @@ def main():
     # print("Zratanie bodov v matici o velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
     #                                                                      zratanie_bodov_end - zratanie_bodov_start))
 
-    # vizualizacia_start = time.time()
-    # vizualizuj(matica)
-    # vizualizacia_end = time.time()
-    # print("Vizualizacia matice velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
-    #                                                                vizualizacia_end - vizualizacia_start))
 
-    # suradnice = []
-    # for i in range(400):
-    #     suradnice.append(generuj_suradnice(matica))
-    #     # print(i, generuj_suradnice())
-    #     # if i > 390:
-    #     #     print(POCETNOST)
-    # print(suradnice)
-    # spravne = 0
-    # nespravne = 0
-    # for i in suradnice:
-    #     if kontrola_generatora(i[0], i[1], i[2]):
-    #         spravne += 1
-    #     else:
-    #         nespravne += 1
-    # print(spravne, nespravne)
-    # print(NESPRAVNE_VYGENEROVANE)
+
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -750,8 +735,9 @@ def main():
     # vizualizacia_end = time.time()
     # print("Vizualizacia matice velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE, vizualizacia_end-vizualizacia_start))
 
-    zaciatok_funkcie(main.__name__, False)
-
+    program_end = time.time()
+    cas = program_end-program_star
+    print("Program pre nastavenia \"{}\" zabral celkovo {} s, co je {} min".format(charakteristika, cas, cas / 60))
 
 if __name__ == "__main__":
     main()
