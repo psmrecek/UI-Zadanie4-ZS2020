@@ -57,7 +57,7 @@ def casova_pecat(pripona, charakteristika=""):
 
 
 # --------------------------------------------------------------------------------------------------------------------
-ROZMER_MATICE = 10001
+ROZMER_MATICE = 1001
 POLOVICA_ROZMERU = ROZMER_MATICE // 2
 HORNA_HRANICA = POLOVICA_ROZMERU
 DOLNA_HRANICA = -POLOVICA_ROZMERU
@@ -229,11 +229,6 @@ def vykresli_hranice(matica):
 
         vloz_do_matice(matica, OHRANICENIE, y, MODRA)
         vloz_do_matice(matica, y, OHRANICENIE, ZELENA)
-
-    # for y in range(-100, 101):
-    #     for x in range(-100, 101):
-    #         vloz_do_matice(matica, x, y, CERVENA)
-    # vypis(matica)
 
 
 def zrataj_pocet_bodov(matica):
@@ -484,12 +479,6 @@ def kontrola_generatora(pole_suradnic):
     return spravne, nespravne
 
 
-def vzdialenostna_funkcia(xa, ya, xb, yb):
-
-    vzdialenost = math.sqrt(((xa-xb)**2 + (ya-yb)**2))
-    return vzdialenost
-
-
 def klasifikator(pole_vlozenych, x, y, k):
     cervena = 0
     zelena = 0
@@ -501,7 +490,7 @@ def klasifikator(pole_vlozenych, x, y, k):
     pole_vzdialenosti = []
 
     for vlozeny in pole_vlozenych:
-        vzdialenost = vzdialenostna_funkcia(vlozeny[0], vlozeny[1], x, y)
+        vzdialenost = vzdialenostna_funkcia([vlozeny[0], vlozeny[1]], [x, y])
         farba_z_klasifikatora = vlozeny[2]
         pole_vzdialenosti.append([vzdialenost, farba_z_klasifikatora])
 
@@ -533,18 +522,8 @@ def klasifikator(pole_vlozenych, x, y, k):
     return farba_z_klasifikatora
 
 
-def vzdialenostna_funkcia_strom(suradnice_a, suradnice_b):
-    xa = suradnice_a[0]
-    ya = suradnice_a[1]
-    xb = suradnice_b[0]
-    yb = suradnice_b[1]
-
-    vzdialenost = math.sqrt(((xa-xb)**2 + (ya-yb)**2))
-    return vzdialenost
-
-
-def klasifikator_novych_bodov(matica, strom, x, y, k):
-    najblizsi_susedia = kdtree.get_knn(strom, [x, y], k, 2, vzdialenostna_funkcia_strom, return_distances=False)
+def klasifikator_zvysnych_bodov(matica, strom, x, y, k):
+    najblizsi_susedia = kdtree.get_knn(strom, [x, y], k, 2, vzdialenostna_funkcia, return_distances=False)
     cervena = 0
     zelena = 0
     modra = 0
@@ -574,6 +553,16 @@ def klasifikator_novych_bodov(matica, strom, x, y, k):
         farba_z_klasifikatora = FIALOVA
 
     return farba_z_klasifikatora
+
+
+def vzdialenostna_funkcia(suradnice_a, suradnice_b):
+    xa = suradnice_a[0]
+    ya = suradnice_a[1]
+    xb = suradnice_b[0]
+    yb = suradnice_b[1]
+
+    vzdialenost = math.sqrt(((xa-xb)**2 + (ya-yb)**2))
+    return vzdialenost
 
 
 def vytvor_testovaciu_sadu(pole_vlozenych, pole_na_vkladanie, k):
@@ -620,7 +609,7 @@ def vyfarbi_mapu(matica, k, strom, skok):
         for y in range(DOLNA_HRANICA, HORNA_HRANICA + 1, skok):
             farba = ziskaj_farbu_z_matice(matica, x, y)
             if farba == BIELA:
-                farba = klasifikator_novych_bodov(matica, strom, x, y, k)
+                farba = klasifikator_zvysnych_bodov(matica, strom, x, y, k)
             nova_matica[nove_y][nove_x] = farba
             nove_y += 1
         nove_x += 1
@@ -636,7 +625,7 @@ def main():
     program_star = time.time()
 
     np.random.seed(1452)
-    k = 15
+    k = 1
     pocet_testovacich_bodov = MAX_POCET_BODOV_TRIEDY * 4
     skok = 25
     charakteristika = str(ROZMER_MATICE)+"x-"+str(pocet_testovacich_bodov+20)+"b-"+str(skok)+"p-"+str(k)+"k"
@@ -694,7 +683,7 @@ def main():
     oddelovac()
 
     vizualizacia_start = time.time()
-    vizualizuj(nova_matica, charakteristika+"-"+str(uspesnost), uloz=True)
+    vizualizuj(nova_matica, charakteristika+"-"+str(uspesnost), uloz=False)
     vizualizacia_end = time.time()
     print("Vizualizacia matice velkosti {}x{} zabralo {} s".format(ROZMER_MATICE, ROZMER_MATICE,
                                                                    vizualizacia_end - vizualizacia_start))
